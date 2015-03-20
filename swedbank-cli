@@ -6,6 +6,7 @@ import uuid
 import random
 import hashlib
 import json
+import os
 
 from optparse import OptionParser
 if sys.version_info > (3, 0):
@@ -151,6 +152,35 @@ class swedbank:
         """ Get the response data """
         return self.data
 
+class config:
+    def __init__(self):
+        """ Try to determine XDG-support """
+        try:
+            from xdg import BaseDirectory
+            self.config_path = BaseDirectory.load_first_config('swedbank-cli')
+            if not self.config_path: raise ImportError
+            self.config_path += '/config.json'
+
+        except ImportError:
+            self.config_path =  os.path.expanduser('~') +"/.swedbank-cli"
+
+    def load(self):
+        """ Attempt to load config file in JSON format """
+        if not os.path.exists(self.config_path):
+            return False
+
+        try:
+            with open(self.config_path,'r') as f:
+                self._config = json.loads(f.read())
+        except IOError:
+            return False
+
+        return True
+
+    def get(self, var):
+        if var in self._config:
+            return self._config[var]
+        return None
 
 def main():
     """ Main """
@@ -172,6 +202,12 @@ def main():
     if options.listbanks:
         swed.listbanks()
         sys.exit(2)
+
+    conf = config()
+    if conf.load():
+        for key in conf._config.keys():
+            if vars(options).has_key(key):
+                setattr(options, key, conf.get(key))
 
     if not options.username:
         print("Missing username!")
