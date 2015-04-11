@@ -115,6 +115,18 @@ class swedbank:
     def parseAccountNumber(self, nr):
         return nr.replace(' ', '').replace('-', '')
 
+    def formatCurrency(self, nr):
+        try:
+            parts = ('%0.2f' % nr).split('.')
+            s = '%d' % int(parts[0])
+            groups = []
+            while s and s[-1].isdigit():
+                groups.append(s[-3:])
+                s = s[:-3]
+            return (s + " ".join(reversed(groups))) + ',' + parts[1]
+        except:
+            return nr
+
     def accounts(self):
         """ Accounts """
         try:
@@ -126,8 +138,23 @@ class swedbank:
         overview = json.loads(self.getdata())
 
         flatlist = [item for sublist in reversed(list(overview.values())) for item in sublist]
-        nameLen = len(max([x['name'] for x in flatlist], key=len))
-        balanceLen = len(max([x['balance'] for x in flatlist], key=len))
+
+        lengths = {'name': 0, 'balance': 0, 'accountNumber': 0}
+        total = 0
+        for n in flatlist:
+            for i in ['name', 'balance', 'accountNumber']:
+                if len(n[i]) > lengths[i]: lengths[i] = len(n[i])
+            total += float(n['balance'].replace(' ', '').replace(',', '.'))
+
+        total = self.formatCurrency(total)
+        if len(total) > lengths['balance']: lengths['balance'] = len(total)
+
+        if self.output_format == 'hr':
+            print('%s %s %s' % (
+                self.ANSI('bold yellow') + 'Account'.ljust(lengths['accountNumber'])
+                ,'Name'.ljust(lengths['name'])
+                ,'Balance'.rjust(lengths['balance'])+self.ANSI('normal')
+            ))
 
         for n in flatlist:
             if self.account_select:
@@ -136,10 +163,19 @@ class swedbank:
             elif self.account is None and "id" in n:
                 self.account = n["id"]
             print("%s %s %s" % (
-                n['accountNumber'],
-                self.formatName(n['name'], nameLen),
-                self.formatBalance(n['balance'], balanceLen)
+                self.formatAccountNumber(n['accountNumber'], lengths['accountNumber']),
+                self.formatName(n['name'], lengths['name']),
+                self.formatBalance(n['balance'], lengths['balance'])
             ))
+
+        if self.output_format == 'hr':
+            print('-' * (lengths['accountNumber'] + lengths['name'] + lengths['balance'] + 2))
+            print('%s %s %s' % (
+                ' ' * lengths['accountNumber']
+                ,self.formatName('Total', lengths['name'])
+                ,self.formatBalance(total, lengths['balance'])
+            ))
+
         if self.account_select and not self.account:
             print('Account not found')
             sys.exit(1)
@@ -159,6 +195,11 @@ class swedbank:
             return self.ANSI(color) + str(balance).rjust(maxlen) + self.ANSI('normal')
         else:
             return str(float(balance.replace(' ', '').replace(',', '.')))
+
+    def formatAccountNumber(self, nr, maxlen):
+        if self.output_format == 'hr':
+            return self.ANSI('bold blue') + nr.ljust(maxlen)
+        return nr
 
     def formatDate(self, date):
         if self.transaction_grouping == 'day':
@@ -203,7 +244,7 @@ class swedbank:
 
         if self.output_format == 'hr':
             print(self.ANSI('bold yellow') + '\n' + "Transactions".center(lineLen))
-            print('-' * lineLen)
+            print(self.ANSI('normal') + '-' * lineLen)
 
             print("%s%s %s" % (
                 (self.ANSI('bold white')+'Date'.ljust(11)) if self.transaction_grouping != 'day' else ''
@@ -211,7 +252,7 @@ class swedbank:
                 ,'Amount'.rjust(lengths['amount'])
             ))
             print("%s%s %s" % (
-                ((self.ANSI('bold yellow') + '-' * 10) + ' ') if self.transaction_grouping != 'day' else ''
+                ((self.ANSI('normal') + '-' * 10) + ' ') if self.transaction_grouping != 'day' else ''
                 ,'-' * lengths['description']
                 ,'-' * lengths['amount']
             ))
