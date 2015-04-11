@@ -112,6 +112,9 @@ class swedbank:
 
         return True
 
+    def parseAccountNumber(self, nr):
+        return nr.replace(' ', '').replace('-', '')
+
     def accounts(self):
         """ Accounts """
         try:
@@ -127,12 +130,19 @@ class swedbank:
         balanceLen = len(max([x['balance'] for x in flatlist], key=len))
 
         for n in flatlist:
-            if self.account is None and "id" in n:
+            if self.account_select:
+                if 'id' in n and (self.parseAccountNumber(n['accountNumber']) == self.parseAccountNumber(self.account_select) or n['name'].lower() == self.account_select.lower()):
+                    self.account = n["id"]
+            elif self.account is None and "id" in n:
                 self.account = n["id"]
-            print("%s %s" % (
+            print("%s %s %s" % (
+                n['accountNumber'],
                 self.formatName(n['name'], nameLen),
                 self.formatBalance(n['balance'], balanceLen)
             ))
+        if self.account_select and not self.account:
+            print('Account not found')
+            sys.exit(1)
 
     def formatName(self, name, maxlen):
         if self.output_format == 'hr':
@@ -289,6 +299,8 @@ def main():
                       choices=['hr','raw'], default='hr', help="Choose output format (raw, hr)")
     parser.add_option("-g", "--grouping",
                       choices=['none','year','month','day'], default='month', help="Grouping of transactions (none, month, day)")
+    parser.add_option("-a", "--account",
+                      help="Account used for transactions")
     (options, args) = parser.parse_args()
 
     swed = swedbank()
@@ -316,6 +328,7 @@ def main():
     bank = options.bank
     swed.output_format = options.format
     swed.transaction_grouping = options.grouping
+    swed.account_select = options.account
 
     if not password:
         print("Missing password!")
