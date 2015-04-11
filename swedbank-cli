@@ -121,7 +121,7 @@ class swedbank:
             return
         overview = json.loads(self.getdata())
 
-        flatlist = [item for sublist in reversed(list(overview.itervalues())) for item in sublist]
+        flatlist = [item for sublist in reversed(list(overview.values())) for item in sublist]
         nameLen = len(max([x['name'] for x in flatlist], key=len))
         balanceLen = len(max([x['balance'] for x in flatlist], key=len))
 
@@ -226,7 +226,7 @@ def main():
     conf = config()
     if conf.load():
         for key in conf._config.keys():
-            if vars(options).has_key(key):
+            if key in vars(options):
                 setattr(options, key, conf.get(key))
 
     if not options.username:
