@@ -136,15 +136,41 @@ class swedbank:
 
     def formatName(self, name, maxlen):
         if self.output_format == 'hr':
-            return str(name).ljust(maxlen)
+            return self.ANSI('bold white') + str(name).ljust(maxlen) + self.ANSI('normal')
         else:
             return name
 
     def formatBalance(self, balance, maxlen):
         if self.output_format == 'hr':
-            return str(balance).rjust(maxlen)
+            if balance.startswith('-'):
+                color = 'red'
+            else:
+                color = 'bold green'
+            return self.ANSI(color) + str(balance).rjust(maxlen) + self.ANSI('normal')
         else:
             return str(float(balance.replace(' ', '').replace(',', '.')))
+
+    def formatDate(self, date):
+        if self.output_format == 'hr':
+            return self.ANSI('bold blue') + date + self.ANSI('normal')
+        return date
+
+    def ANSI(self, value):
+        clr = {
+            'red': '31'
+            ,'green': '32'
+            ,'yellow': '33'
+            ,'blue': '34'
+            ,'white': '37'
+            ,'bold': '1'
+            ,'normal': '0'
+        };
+        out = ''
+        for arg in value.split(' '):
+            if arg in clr:
+                out += '\033[' + clr[arg] + 'm'
+
+        return out;
 
 
     def history(self):
@@ -164,11 +190,11 @@ class swedbank:
         lineLen = 10+lengths['description']+lengths['amount']+2
 
         if self.output_format == 'hr':
-            print('\n'+"Transactions".center(lineLen))
+            print(self.ANSI('bold yellow') + '\n' + "Transactions".center(lineLen))
             print('-' * lineLen)
 
-            print("%s %s %s" % ('Date'.ljust(10), 'Description'.ljust(lengths['description']), 'Amount'.rjust(lengths['amount'])))
-            print("%s %s %s" % ('-' * 10, '-' * lengths['description'], '-' * (lengths['amount'])))
+            print("%s %s %s" % (self.ANSI('bold white')+'Date'.ljust(10), 'Description'.ljust(lengths['description']), 'Amount'.rjust(lengths['amount'])))
+            print("%s %s %s" % (self.ANSI('bold yellow') + '-' * 10, '-' * lengths['description'], '-' * (lengths['amount'])))
         else:
             print("Transactions:")
 
@@ -176,11 +202,11 @@ class swedbank:
         for i in transactions:
             month = i['date'][:7]
             if self.output_format == 'hr' and prevMonth and prevMonth != month:
-                print(time.strftime('%B %Y',time.strptime(i['date'],'%Y-%m-%d')).center(lineLen,'-'))
+                print(self.ANSI('bold yellow') + time.strftime('%B %Y',time.strptime(i['date'],'%Y-%m-%d')).center(lineLen,'-') + self.ANSI('normal'))
             prevMonth = month
 
             print("%s %s %s" % (
-                i["date"],
+                self.formatDate(i["date"]),
                 self.formatName(i["description"], lengths['description']),
                 self.formatBalance(i["amount"], lengths['amount'])
             ))
