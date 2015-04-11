@@ -120,13 +120,31 @@ class swedbank:
             print(error["errorMessages"]["general"][0]["message"])
             return
         overview = json.loads(self.getdata())
-        overviewl = reversed(list(overview))
-        for i in overviewl:
-            if len(overview[i]) > 0:
-                for n in overview[i]:
-                    if self.account is None and "id" in n:
-                        self.account = n["id"]
-                    print("%s: %s" % (n["name"], n["balance"]))
+
+        flatlist = [item for sublist in reversed(list(overview.itervalues())) for item in sublist]
+        nameLen = len(max([x['name'] for x in flatlist], key=len))
+        balanceLen = len(max([x['balance'] for x in flatlist], key=len))
+
+        for n in flatlist:
+            if self.account is None and "id" in n:
+                self.account = n["id"]
+            print("%s %s" % (
+                self.formatAccountName(n['name'], nameLen),
+                self.formatAccountBalance(n['balance'], n['currency'], balanceLen)
+            ))
+
+    def formatAccountName(self, name, maxlen):
+        if self.output_format == 'hr':
+            return str(name + ':').ljust(maxlen + 1)
+        else:
+            return name
+
+    def formatAccountBalance(self, balance, currency, maxlen):
+        if self.output_format == 'hr':
+            return str(balance + ' ' + currency).rjust(maxlen + 4)
+        else:
+            return str(float(balance.replace(' ', '').replace(',', '.')))
+
 
     def history(self):
         """ History """
@@ -196,6 +214,8 @@ def main():
                       action="store_true", dest="listbanks", default=False, help="List banks to choose from")
     parser.add_option("-t", "--transactions",
                       action="store_true", dest="transactions", help="Show all available transactions for account.")
+    parser.add_option("-f", "--format",
+                      choices=['hr','raw'], default='hr', help="Choose output format (raw, hr)")
     (options, args) = parser.parse_args()
 
     swed = swedbank()
@@ -221,6 +241,7 @@ def main():
         password = getpass.getpass()
 
     bank = options.bank
+    swed.output_format = options.format
 
     if not password:
         print("Missing password!")
