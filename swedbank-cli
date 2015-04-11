@@ -136,7 +136,7 @@ class swedbank:
 
     def formatName(self, name, maxlen):
         if self.output_format == 'hr':
-            return self.ANSI('bold white') + str(name).ljust(maxlen) + self.ANSI('normal')
+            return self.ANSI('bold white') + name.ljust(maxlen) + self.ANSI('normal')
         else:
             return name
 
