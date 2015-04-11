@@ -151,9 +151,11 @@ class swedbank:
             return str(float(balance.replace(' ', '').replace(',', '.')))
 
     def formatDate(self, date):
+        if self.transaction_grouping == 'day':
+            return ''
         if self.output_format == 'hr':
-            return self.ANSI('bold blue') + date + self.ANSI('normal')
-        return date
+            return self.ANSI('bold blue') + date + self.ANSI('normal') + ' '
+        return date + ' '
 
     def ANSI(self, value):
         clr = {
@@ -187,25 +189,43 @@ class swedbank:
         for i in transactions:
             if len(i['description']) > lengths['description']: lengths['description'] = len(i['description'])
             if len(i['amount']) > lengths['amount']: lengths['amount'] = len(i['amount'])
-        lineLen = 10+lengths['description']+lengths['amount']+2
+        lineLen = 10 + (lengths['description']+1) + ((lengths['amount']+1) if self.transaction_grouping != 'day' else 0)
 
         if self.output_format == 'hr':
             print(self.ANSI('bold yellow') + '\n' + "Transactions".center(lineLen))
             print('-' * lineLen)
 
-            print("%s %s %s" % (self.ANSI('bold white')+'Date'.ljust(10), 'Description'.ljust(lengths['description']), 'Amount'.rjust(lengths['amount'])))
-            print("%s %s %s" % (self.ANSI('bold yellow') + '-' * 10, '-' * lengths['description'], '-' * (lengths['amount'])))
+            print("%s%s %s" % (
+                (self.ANSI('bold white')+'Date'.ljust(11)) if self.transaction_grouping != 'day' else ''
+                ,'Description'.ljust(lengths['description'])
+                ,'Amount'.rjust(lengths['amount'])
+            ))
+            print("%s%s %s" % (
+                ((self.ANSI('bold yellow') + '-' * 10) + ' ') if self.transaction_grouping != 'day' else ''
+                ,'-' * lengths['description']
+                ,'-' * lengths['amount']
+            ))
         else:
             print("Transactions:")
 
-        prevMonth = None
+        prevHeader = None
         for i in transactions:
-            month = i['date'][:7]
-            if self.output_format == 'hr' and prevMonth and prevMonth != month:
-                print(self.ANSI('bold yellow') + time.strftime('%B %Y',time.strptime(i['date'],'%Y-%m-%d')).center(lineLen,'-') + self.ANSI('normal'))
-            prevMonth = month
+            if self.transaction_grouping != 'none':
+                if self.transaction_grouping == 'month':
+                    divHeader = i['date'][:7]
+                    divFormat = '%B %Y'
+                elif self.transaction_grouping == 'year':
+                    divHeader = i['date'][:4]
+                    divFormat = '%Y'
+                elif self.transaction_grouping == 'day':
+                    divHeader = i['date'][:10]
+                    divFormat = '%Y-%m-%d'
 
-            print("%s %s %s" % (
+                if self.output_format == 'hr' and prevHeader != divHeader:
+                    print(self.ANSI('bold yellow') + '\n' + time.strftime(divFormat, time.strptime(i['date'],'%Y-%m-%d')) + self.ANSI('normal'))
+                prevHeader = divHeader
+
+            print("%s%s %s" % (
                 self.formatDate(i["date"]),
                 self.formatName(i["description"], lengths['description']),
                 self.formatBalance(i["amount"], lengths['amount'])
@@ -267,6 +287,8 @@ def main():
                       action="store_true", dest="transactions", help="Show all available transactions for account.")
     parser.add_option("-f", "--format",
                       choices=['hr','raw'], default='hr', help="Choose output format (raw, hr)")
+    parser.add_option("-g", "--grouping",
+                      choices=['none','year','month','day'], default='month', help="Grouping of transactions (none, month, day)")
     (options, args) = parser.parse_args()
 
     swed = swedbank()
@@ -293,6 +315,7 @@ def main():
 
     bank = options.bank
     swed.output_format = options.format
+    swed.transaction_grouping = options.grouping
 
     if not password:
         print("Missing password!")
